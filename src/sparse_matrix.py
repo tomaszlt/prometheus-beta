@@ -26,25 +26,17 @@ def sparse_matrix_multiply(matrix_a, matrix_b):
     if not matrix_a or not matrix_b:
         return {}
     
-    # Transpose matrix_b for efficient column access
-    transposed_b = {}
-    for b_row, row_vector in matrix_b.items():
-        for col, val in row_vector.items():
-            if col not in transposed_b:
-                transposed_b[col] = {}
-            transposed_b[col][b_row] = val
-    
     # Perform multiplication
     result = {}
     for a_row, a_row_vector in matrix_a.items():
         result_row = {}
         
-        # Iterate through columns of transposed matrix_b
-        for b_col, b_col_vector in transposed_b.items():
-            # Compute dot product
+        # Compute each element in the result matrix
+        for b_col in set().union(*(vector.keys() for vector in matrix_b.values())):
+            # Compute dot product for this column
             dot_product = sum(
-                a_row_vector.get(k, 0) * b_col_vector.get(k, 0) 
-                for k in set(a_row_vector) & set(b_col_vector)
+                a_row_vector.get(k, 0) * matrix_b.get(k, {}).get(b_col, 0)
+                for k in a_row_vector.keys()
             )
             
             # Only store non-zero values
