@@ -32,18 +32,14 @@ def sparse_matrix_multiply(matrix_a, matrix_b):
         result_row = {}
         
         # Compute each element in the result matrix
-        for b_col in set().union(*(vector.keys() for vector in matrix_b.values())):
-            # Compute dot product for this column
-            dot_product = sum(
-                a_row_vector.get(k, 0) * matrix_b.get(k, {}).get(b_col, 0)
-                for k in a_row_vector.keys()
-            )
-            
-            # Only store non-zero values
-            if dot_product != 0:
-                result_row[b_col] = dot_product
+        for k, a_val in a_row_vector.items():
+            b_row_vector = matrix_b.get(k, {})
+            for b_col, b_val in b_row_vector.items():
+                # Multiply and accumulate
+                result_row[b_col] = result_row.get(b_col, 0) + a_val * b_val
         
-        # Only store rows with non-zero values
+        # Remove zero values and store if not empty
+        result_row = {k: v for k, v in result_row.items() if v != 0}
         if result_row:
             result[a_row] = result_row
     
