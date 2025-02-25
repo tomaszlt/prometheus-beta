@@ -24,21 +24,25 @@ def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[U
     if not graph:
         raise ValueError("Graph cannot be empty")
     
-    # Get all vertices
-    vertices = list(graph.keys())
+    # Ensure all vertices are mapped
+    vertices = sorted(graph.keys())
     n = len(vertices)
     
-    # Map vertices to 0-based indices if they're not already
+    # Map vertices to 0-based indices
     vertex_map = {v: i for i, v in enumerate(vertices)}
     reverse_map = {i: v for v, i in vertex_map.items()}
     
+    # Create a complete graph with all vertices
+    complete_graph = {v: {} for v in vertices}
+    for u in graph:
+        for v, weight in graph[u].items():
+            complete_graph[u][v] = weight
+    
     # Add a dummy source vertex
-    graph_with_dummy = graph.copy()
     dummy_vertex = max(vertices) + 1
-    graph_with_dummy[dummy_vertex] = {v: 0 for v in vertices}
+    complete_graph[dummy_vertex] = {v: 0 for v in vertices}
     
     # Step 1: Run Bellman-Ford from the dummy vertex to detect negative cycles
-    # and compute vertex potentials
     def bellman_ford(graph, source):
         dist = {v: float('inf') for v in graph}
         dist[source] = 0
@@ -59,21 +63,27 @@ def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[U
         return dist
     
     # Compute potentials
-    potentials = bellman_ford(graph_with_dummy, dummy_vertex)
+    potentials = bellman_ford(complete_graph, dummy_vertex)
     if potentials is None:
         return None  # Negative cycle detected
     
-    # Remove the dummy vertex
-    del graph_with_dummy[dummy_vertex]
+    # Remove dummy vertex
+    del complete_graph[dummy_vertex]
     del potentials[dummy_vertex]
     
     # Step 2: Reweight edges
     reweighted_graph = {}
-    for u in graph:
+    for u in complete_graph:
         reweighted_graph[u] = {}
-        for v, weight in graph[u].items():
+        for v in complete_graph:
+            # If no direct edge, use infinity
+            if v not in complete_graph[u]:
+                continue
+            
+            edge_weight = complete_graph[u][v]
+            # Reweight the edge using vertex potentials
             reweighted_graph[u][v] = (
-                weight + potentials[u] - potentials[v]
+                edge_weight + potentials[u] - potentials[v]
             )
     
     # Step 3: Run Dijkstra from each vertex
@@ -89,7 +99,13 @@ def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[U
             if current_dist > dist[u]:
                 continue
             
-            for v, weight in graph[u].items():
+            # Look at all vertices, not just adjacent ones
+            for v in graph:
+                # Only process if there's a known edge to v from u
+                if v not in graph[u]:
+                    continue
+                
+                weight = graph[u][v]
                 distance = current_dist + weight
                 
                 if distance < dist[v]:
@@ -100,17 +116,20 @@ def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[U
     
     # Compute shortest paths and restore original weights
     result = []
-    for u in sorted(vertices):
-        path_distances = dijkstra(reweighted_graph, u)
+    for u in vertices:
+        path_distances = dijkstra(reweighted_graph, vertex_map[u])
         
         # Restore original edge weights
         restored_distances = []
-        for v in sorted(vertices):
-            if path_distances[v] == float('inf'):
+        for v in vertices:
+            # Calculate final distance, adjusting for potentials
+            if path_distances[vertex_map[v]] == float('inf'):
                 restored_distances.append(float('inf'))
             else:
                 restored_distances.append(
-                    path_distances[v] - potentials[u] + potentials[v]
+                    path_distances[vertex_map[v]] 
+                    - potentials[u] 
+                    + potentials[v]
                 )
         
         result.append(restored_distances)
