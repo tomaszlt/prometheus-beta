@@ -5,9 +5,6 @@ def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[U
     """
     Implement Johnson's algorithm to find the shortest paths between all pairs of vertices.
     
-    Johnson's algorithm efficiently computes all-pairs shortest paths for sparse graphs.
-    It uses Bellman-Ford to reweight edges and then Dijkstra's algorithm.
-    
     Args:
         graph (Dict[int, Dict[int, int]]): Adjacency list representation of the graph.
                                            Keys are source vertices, 
@@ -25,12 +22,8 @@ def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[U
         raise ValueError("Graph cannot be empty")
     
     # Ensure all vertices are mapped
-    vertices = sorted(graph.keys())
-    n = len(vertices)
-    
-    # Map vertices to 0-based indices
-    vertex_map = {v: i for i, v in enumerate(vertices)}
-    reverse_map = {i: v for v, i in vertex_map.items()}
+    vertices = sorted(set(list(graph.keys()) + 
+                          [v for u in graph for v in graph[u].keys()]))
     
     # Create a complete graph with all vertices
     complete_graph = {v: {} for v in vertices}
@@ -50,13 +43,13 @@ def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[U
         # Relax edges |V| - 1 times
         for _ in range(len(graph) - 1):
             for u in graph:
-                for v, weight in graph[u].items():
+                for v, weight in graph.get(u, {}).items():
                     if dist[u] != float('inf') and dist[u] + weight < dist[v]:
                         dist[v] = dist[u] + weight
         
         # Check for negative cycles
         for u in graph:
-            for v, weight in graph[u].items():
+            for v, weight in graph.get(u, {}).items():
                 if dist[u] != float('inf') and dist[u] + weight < dist[v]:
                     return None
         
@@ -76,8 +69,8 @@ def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[U
     for u in complete_graph:
         reweighted_graph[u] = {}
         for v in complete_graph:
-            # If no direct edge, use infinity
-            if v not in complete_graph[u]:
+            # If no direct edge, skip
+            if v not in complete_graph.get(u, {}):
                 continue
             
             edge_weight = complete_graph[u][v]
@@ -99,13 +92,7 @@ def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[U
             if current_dist > dist[u]:
                 continue
             
-            # Look at all vertices, not just adjacent ones
-            for v in graph:
-                # Only process if there's a known edge to v from u
-                if v not in graph[u]:
-                    continue
-                
-                weight = graph[u][v]
+            for v, weight in graph.get(u, {}).items():
                 distance = current_dist + weight
                 
                 if distance < dist[v]:
@@ -117,17 +104,17 @@ def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[U
     # Compute shortest paths and restore original weights
     result = []
     for u in vertices:
-        path_distances = dijkstra(reweighted_graph, vertex_map[u])
+        path_distances = dijkstra(reweighted_graph, u)
         
         # Restore original edge weights
         restored_distances = []
         for v in vertices:
-            # Calculate final distance, adjusting for potentials
-            if path_distances[vertex_map[v]] == float('inf'):
+            # Default to infinity if no path exists
+            if v not in path_distances or path_distances[v] == float('inf'):
                 restored_distances.append(float('inf'))
             else:
                 restored_distances.append(
-                    path_distances[vertex_map[v]] 
+                    path_distances[v] 
                     - potentials[u] 
                     + potentials[v]
                 )
