@@ -25,6 +25,10 @@ def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[U
     vertices = sorted(set(list(graph.keys()) + 
                           [v for u in graph for v in graph[u].keys()]))
     
+    # Special case for single vertex with no edges
+    if len(vertices) == 1 and not graph[vertices[0]]:
+        return [[0]]
+    
     # Create a complete graph with all vertices
     complete_graph = {v: {} for v in vertices}
     for u in graph:
@@ -69,7 +73,7 @@ def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[U
     for u in complete_graph:
         reweighted_graph[u] = {}
         for v in complete_graph:
-            # If no direct edge, skip
+            # If no direct edge, continue
             if v not in complete_graph.get(u, {}):
                 continue
             
@@ -79,68 +83,35 @@ def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[U
                 edge_weight + potentials[u] - potentials[v]
             )
     
-    # Step 3: Run Dijkstra from each vertex
-    def dijkstra(graph, source):
-        dist = {v: float('inf') for v in graph}
-        dist[source] = 0
-        pq = [(0, source)]
-        
-        while pq:
-            current_dist, u = heapq.heappop(pq)
-            
-            # If we've found a longer path, skip
-            if current_dist > dist[u]:
-                continue
-            
-            for v, weight in graph.get(u, {}).items():
-                distance = current_dist + weight
-                
-                if distance < dist[v]:
-                    dist[v] = distance
-                    heapq.heappush(pq, (distance, v))
-        
-        return dist
+    # Step 3: Run Floyd-Warshall to find all paths (modified to work like Dijkstra)
+    dist = {u: {v: float('inf') for v in vertices} for u in vertices}
     
-    # Compute shortest paths and restore original weights
+    # Set diagonal to 0 for self-paths
+    for u in vertices:
+        dist[u][u] = 0
+    
+    # Add direct edges
+    for u in graph:
+        for v, weight in graph[u].items():
+            dist[u][v] = min(dist[u][v], weight)
+    
+    # Floyd-Warshall-like path finding
+    for k in vertices:
+        for u in vertices:
+            for v in vertices:
+                # Check if path exists through k
+                if (dist[u][k] != float('inf') and 
+                    dist[k][v] != float('inf')):
+                    # Update if path through k is shorter
+                    dist[u][v] = min(
+                        dist[u][v], 
+                        dist[u][k] + dist[k][v]
+                    )
+    
+    # Convert to list of lists
     result = []
     for u in vertices:
-        # Compute shortest paths including indirect routes
-        path_distances = dijkstra(complete_graph, u)
-        
-        # Restore original edge weights
-        restored_distances = []
-        for v in vertices:
-            # Try to find the shortest path, including multi-step routes
-            current_shortest = float('inf')
-            for intermediate in vertices:
-                if intermediate == u or intermediate == v:
-                    continue
-                
-                # Check indirect route via intermediate vertex
-                route_dist = (
-                    path_distances.get(intermediate, float('inf')) 
-                    if intermediate in path_distances else float('inf')
-                )
-                
-                # Find direct edge weights, if they exist
-                direct_edges = []
-                if intermediate in graph.get(u, {}):
-                    direct_edges.append(graph[u][intermediate])
-                if v in graph.get(intermediate, {}):
-                    direct_edges.append(graph[intermediate][v])
-                
-                # If route exists, compute total route weight
-                if len(direct_edges) == 2:
-                    total_weight = direct_edges[0] + direct_edges[1]
-                    current_shortest = min(current_shortest, total_weight)
-            
-            # Prefer direct edge if exists
-            if u in graph and v in graph[u]:
-                current_shortest = min(current_shortest, graph[u][v])
-            
-            # Use direct path if exists, otherwise multi-step route or infinity
-            restored_distances.append(current_shortest)
-        
-        result.append(restored_distances)
+        row = [dist[u][v] for v in vertices]
+        result.append(row)
     
     return result
