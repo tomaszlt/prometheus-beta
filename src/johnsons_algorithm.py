@@ -1,9 +1,8 @@
-import heapq
 from typing import List, Dict, Union, Optional
 
 def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[Union[int, float]]]]:
     """
-    Implement Johnson's algorithm to find the shortest paths between all pairs of vertices.
+    Implement a modified version of Johnson's algorithm to find shortest paths.
     
     Args:
         graph (Dict[int, Dict[int, int]]): Adjacency list representation of the graph.
@@ -29,44 +28,64 @@ def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[U
     if len(vertices) == 1 and not graph[vertices[0]]:
         return [[0]]
     
-    # Preprocess graph to handle negative edge weights
-    def find_all_paths(graph):
+    # Use Floyd-Warshall with a variant to handle negative edges
+    def floyd_warshall_with_negative_edges(graph):
+        # Initialize distance matrix
         dist = {u: {v: float('inf') for v in vertices} for u in vertices}
-        next_hop = {u: {v: None for v in vertices} for u in vertices}
         
-        # Initialize direct edges
+        # Set diagonal to 0
+        for u in vertices:
+            dist[u][u] = 0
+        
+        # Initialize with direct edges
         for u in graph:
             for v, weight in graph[u].items():
                 dist[u][v] = min(dist[u][v], weight)
-                next_hop[u][v] = v
         
-        # Set self-distances to 0
-        for u in vertices:
-            dist[u][u] = 0
-            next_hop[u][u] = u
-        
-        # Floyd-Warshall with path reconstruction
+        # Try to find all shortest paths
         for k in vertices:
             for u in vertices:
                 for v in vertices:
-                    # Check if path through k is shorter
+                    # Can we improve the path through k?
                     if (dist[u][k] != float('inf') and 
                         dist[k][v] != float('inf') and 
                         dist[u][k] + dist[k][v] < dist[u][v]):
                         dist[u][v] = dist[u][k] + dist[k][v]
-                        next_hop[u][v] = next_hop[u][k]
         
-        # Check for negative cycles
+        # Check for negative cycles and special routing paths
+        for u in vertices:
+            # Check indirect paths that might reduce total path length
+            for start in vertices:
+                for end in vertices:
+                    # Complex routing through negative edges
+                    for mid1 in vertices:
+                        for mid2 in vertices:
+                            # Try multiple routing strategies
+                            if (dist[start][mid1] != float('inf') and 
+                                dist[mid1][mid2] != float('inf') and 
+                                dist[mid2][end] != float('inf')):
+                                potential_path = (
+                                    dist[start][mid1] + 
+                                    dist[mid1][mid2] + 
+                                    dist[mid2][end]
+                                )
+                                # Update if new path is shorter
+                                dist[start][end] = min(
+                                    dist[start][end], 
+                                    potential_path
+                                )
+        
+        # Verify no negative cycles
         for u in vertices:
             if dist[u][u] < 0:
                 return None
         
         return dist
     
-    # Find paths 
-    result_dist = find_all_paths(graph)
+    # Compute shortest paths
+    result_dist = floyd_warshall_with_negative_edges(graph)
     
-    # Negative cycle check
+    # Check for negative cycles
     if result_dist is None:
         return None
     
