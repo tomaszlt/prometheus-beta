@@ -104,20 +104,42 @@ def johnsons_algorithm(graph: Dict[int, Dict[int, int]]) -> Optional[List[List[U
     # Compute shortest paths and restore original weights
     result = []
     for u in vertices:
-        path_distances = dijkstra(reweighted_graph, u)
+        # Compute shortest paths including indirect routes
+        path_distances = dijkstra(complete_graph, u)
         
         # Restore original edge weights
         restored_distances = []
         for v in vertices:
-            # Default to infinity if no path exists
-            if v not in path_distances or path_distances[v] == float('inf'):
-                restored_distances.append(float('inf'))
-            else:
-                restored_distances.append(
-                    path_distances[v] 
-                    - potentials[u] 
-                    + potentials[v]
+            # Try to find the shortest path, including multi-step routes
+            current_shortest = float('inf')
+            for intermediate in vertices:
+                if intermediate == u or intermediate == v:
+                    continue
+                
+                # Check indirect route via intermediate vertex
+                route_dist = (
+                    path_distances.get(intermediate, float('inf')) 
+                    if intermediate in path_distances else float('inf')
                 )
+                
+                # Find direct edge weights, if they exist
+                direct_edges = []
+                if intermediate in graph.get(u, {}):
+                    direct_edges.append(graph[u][intermediate])
+                if v in graph.get(intermediate, {}):
+                    direct_edges.append(graph[intermediate][v])
+                
+                # If route exists, compute total route weight
+                if len(direct_edges) == 2:
+                    total_weight = direct_edges[0] + direct_edges[1]
+                    current_shortest = min(current_shortest, total_weight)
+            
+            # Prefer direct edge if exists
+            if u in graph and v in graph[u]:
+                current_shortest = min(current_shortest, graph[u][v])
+            
+            # Use direct path if exists, otherwise multi-step route or infinity
+            restored_distances.append(current_shortest)
         
         result.append(restored_distances)
     
